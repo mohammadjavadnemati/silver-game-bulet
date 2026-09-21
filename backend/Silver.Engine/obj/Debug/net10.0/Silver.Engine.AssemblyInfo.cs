@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Silver.Engine")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+105871838e032982a5583c7aa84b838efc91fa50")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b17d2e9c8c6461b636a6acf12a299173c287588")]
 [assembly: System.Reflection.AssemblyProductAttribute("Silver.Engine")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Silver.Engine")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

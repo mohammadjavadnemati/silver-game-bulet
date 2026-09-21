@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game\\backend\\Silver.Engine\\Silver.Engine.csproj": {}
+    "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game-bulet\\backend\\Silver.Engine\\Silver.Engine.csproj": {}
   },
   "projects": {
-    "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game\\backend\\Silver.Engine\\Silver.Engine.csproj": {
+    "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game-bulet\\backend\\Silver.Engine\\Silver.Engine.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game\\backend\\Silver.Engine\\Silver.Engine.csproj",
+        "projectUniqueName": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game-bulet\\backend\\Silver.Engine\\Silver.Engine.csproj",
         "projectName": "Silver.Engine",
-        "projectPath": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game\\backend\\Silver.Engine\\Silver.Engine.csproj",
+        "projectPath": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game-bulet\\backend\\Silver.Engine\\Silver.Engine.csproj",
         "packagesPath": "C:\\Users\\injakala\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game\\backend\\Silver.Engine\\obj\\",
+        "outputPath": "C:\\Users\\injakala\\Desktop\\programingprojects\\silver-game-bulet\\backend\\Silver.Engine\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\injakala\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
 import type { RoomInfo, GameStateView } from "./types";
 
-const HUB_URL = "http://localhost:5000/hubs/game";
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:5000/hubs/game";
 
 function getOrCreatePlayerId(): string {
   if (typeof window === "undefined") return "";
