@@ -1,0 +1,289 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import * as signalR from "@microsoft/signalr";
+import type { RoomInfo, GameStateView } from "./types";
+
+const HUB_URL = "http://localhost:5000/hubs/game";
+
+function getOrCreatePlayerId(): string {
+  if (typeof window === "undefined") return "";
+
+  const key = "silver_player_id";
+
+  let id = localStorage.getItem(key);
+
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+
+  return id;
+}
+
+type ActionResult = {
+  success: boolean;
+  error?: string;
+};
+
+type PrivateReveal = {
+  type: string;
+  value: number;
+};
+
+export function useGameConnection() {
+  const connectionRef = useRef<signalR.HubConnection | null>(null);
+
+  const [status, setStatus] = useState<
+    "disconnected" | "connecting" | "connected"
+  >("disconnected");
+
+  const [room, setRoom] = useState<RoomInfo | null>(null);
+  const [gameState, setGameState] = useState<GameStateView | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [lastActionError, setLastActionError] = useState<string | null>(null);
+
+  const [privateReveals, setPrivateReveals] = useState<
+    Record<string, PrivateReveal>
+  >({});
+
+  useEffect(() => {
+  let isUnmounted = false;
+
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl(HUB_URL)
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Information)
+    .build();
+
+  connectionRef.current = connection;
+
+  connection.on("RoomUpdated", (updatedRoom: RoomInfo) => {
+    setRoom(updatedRoom);
+  });
+
+  connection.on("GameStateUpdated", (state: GameStateView) => {
+    setGameState(state);
+  });
+
+  connection.on(
+    "PrivateCardsRevealed",
+    (reveals: Record<string, PrivateReveal>) => {
+      setPrivateReveals((prev) => ({
+        ...prev,
+        ...reveals,
+      }));
+    }
+  );
+
+  connection.on("PrivateCardsExpired", () => {
+    setPrivateReveals({});
+  });
+
+  connection.onreconnecting(() => {
+    if (!isUnmounted) setStatus("connecting");
+  });
+
+  connection.onreconnected(() => {
+    if (!isUnmounted) setStatus("connected");
+  });
+
+  connection.onclose(() => {
+    if (!isUnmounted) setStatus("disconnected");
+  });
+
+setStatus("connecting");
+    connection.start().then(async () => {
+      setStatus("connected");
+
+      // وصل مجدد خودکار: اگه قبلاً عضو یه اتاق بودیم، دوباره بهش ملحق شو
+      const savedRoomCode = localStorage.getItem("silver_room_code");
+      const savedPlayerName = localStorage.getItem("silver_player_name");
+      if (savedRoomCode && savedPlayerName) {
+        const playerId = getOrCreatePlayerId();
+        const result = await connection.invoke("JoinRoom", savedRoomCode, playerId, savedPlayerName);
+        const typed = result as { success: boolean; room?: RoomInfo };
+        if (typed.success && typed.room) {
+          setRoom(typed.room);
+        } else {
+          // اتاق دیگه معتبر نیست (مثلاً بازی خیلی وقته تموم شده) - پاکش کن
+          localStorage.removeItem("silver_room_code");
+          localStorage.removeItem("silver_player_name");
+        }
+      }
+    }).catch(() => setStatus("disconnected"));
+    connectionRef.current = connection;
+
+  return () => {
+    isUnmounted = true;
+
+    connection.off("RoomUpdated");
+    connection.off("GameStateUpdated");
+    connection.off("PrivateCardsRevealed");
+    connection.off("PrivateCardsExpired");
+
+    // اگه هنوز داره negotiate می‌کنه، stop() رو صدا نزن (باعث reject شدنِ start() با خطای
+    // "stopped during negotiation" می‌شه)؛ فقط وقتی connected/connecting واقعی شده ببندش.
+    if (
+      connection.state === signalR.HubConnectionState.Connected ||
+      connection.state === signalR.HubConnectionState.Reconnecting
+    ) {
+      connection.stop().catch(() => {});
+    }
+
+    if (connectionRef.current === connection) {
+      connectionRef.current = null;
+    }
+  };
+}, []);
+
+const createRoom = useCallback(async (playerName: string) => {
+    const playerId = getOrCreatePlayerId();
+    const result = await connectionRef.current?.invoke("CreateRoom", playerId, playerName);
+    setRoom(result as RoomInfo);
+    localStorage.setItem("silver_room_code", (result as RoomInfo).roomCode);
+    localStorage.setItem("silver_player_name", playerName);
+    return result as RoomInfo;
+  }, []);
+
+ const joinRoom = useCallback(async (roomCode: string, playerName: string) => {
+    const playerId = getOrCreatePlayerId();
+    setJoinError(null);
+    const result = await connectionRef.current?.invoke("JoinRoom", roomCode, playerId, playerName);
+    const typed = result as { success: boolean; error?: string; room?: RoomInfo };
+    if (!typed.success) {
+      setJoinError(typed.error ?? "خطای ناشناخته");
+      return null;
+    }
+    setRoom(typed.room ?? null);
+    localStorage.setItem("silver_room_code", roomCode);
+    localStorage.setItem("silver_player_name", playerName);
+    return typed.room;
+  }, []);
+
+  const startGame = useCallback(async (roomCode: string) => {
+    const connection = connectionRef.current;
+
+    if (!connection) {
+      return {
+        success: false,
+        error: "اتصال به سرور برقرار نیست.",
+      };
+    }
+
+    if (connection.state !== signalR.HubConnectionState.Connected) {
+      return {
+        success: false,
+        error: "اتصال به سرور برقرار نیست.",
+      };
+    }
+
+    try {
+      const result = await connection.invoke<ActionResult>(
+        "StartGame",
+        roomCode
+      );
+
+      if (!result.success) {
+        setLastActionError(result.error ?? "خطا در شروع بازی");
+      } else {
+        setLastActionError(null);
+      }
+
+      return result;
+    } catch (error) {
+      console.error("StartGame failed:", error);
+
+      const result = {
+        success: false,
+        error: "خطا در شروع بازی.",
+      };
+
+      setLastActionError(result.error);
+
+      return result;
+    }
+  }, []);
+
+  const sendAction = useCallback(
+    async (
+      roomCode: string,
+      actionType: string,
+      payload: Record<string, unknown>
+    ) => {
+      const connection = connectionRef.current;
+
+      if (!connection) {
+        const result = {
+          success: false,
+          error: "اتصال به سرور برقرار نیست.",
+        };
+
+        setLastActionError(result.error);
+
+        return result;
+      }
+
+      if (connection.state !== signalR.HubConnectionState.Connected) {
+        const result = {
+          success: false,
+          error: "اتصال به سرور برقرار نیست.",
+        };
+
+        setLastActionError(result.error);
+
+        return result;
+      }
+
+      const playerId = getOrCreatePlayerId();
+
+      try {
+        const result = await connection.invoke<ActionResult>(
+          "SendGameAction",
+          roomCode,
+          actionType,
+          {
+            playerId,
+            ...payload,
+          }
+        );
+
+        if (!result.success) {
+          setLastActionError(result.error ?? "خطای ناشناخته");
+        } else {
+          setLastActionError(null);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("SendGameAction failed:", error);
+
+        const result = {
+          success: false,
+          error: "خطا در ارسال اکشن.",
+        };
+
+        setLastActionError(result.error);
+
+        return result;
+      }
+    },
+    []
+  );
+
+  return {
+    status,
+    room,
+    gameState,
+    joinError,
+    lastActionError,
+    privateReveals,
+
+    createRoom,
+    joinRoom,
+    startGame,
+    sendAction,
+
+    myPlayerId: getOrCreatePlayerId(),
+  };
+}
