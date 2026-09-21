@@ -3,24 +3,24 @@ using Silver.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// builder.Services.AddCors(options =>
-// {
-//     options.AddPolicy("SilverFrontend", policy =>
-//     {
-//         policy.WithOrigins("http://localhost:3000") // ← اگه فرانت‌اند رو پورت دیگه‌ای اجرا می‌کنی، همون رو بذار
-//               .AllowAnyHeader()
-//               .AllowAnyMethod()
-//               .AllowCredentials();
-//     });
-// });
+// Render پورت را از متغیر PORT می‌دهد
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+var allowedOrigins = (builder.Configuration["ALLOWED_ORIGINS"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("SilverFrontend", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true) // فقط برای تست داخل شبکه‌ی محلی؛ در production محدودش کن
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins);
+        else
+            policy.SetIsOriginAllowed(_ => true); // فقط لوکال
+
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     });
 });
 
@@ -35,11 +35,9 @@ builder.Services.AddSignalR(options =>
 
 var app = builder.Build();
 
-// app.UseCors("AllowFrontend");
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.UseCors("SilverFrontend");
 
+app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapHub<GameHub>("/hubs/game");
 
 app.Run();
